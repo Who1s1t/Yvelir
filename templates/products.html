@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Товары{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Каталог товаров</h1>
+
+{% if current_user.is_authenticated and (current_user.is_admin or current_user.is_manager) %}
+<!-- Фильтры и поиск для менеджера и админа -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <i class="bi bi-funnel"></i> Фильтры и поиск
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Поиск</label>
+                <input type="text" name="search" class="form-control" value="{{ search }}"
+                       placeholder="Название, артикул, описание...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Производитель</label>
+                <select name="manufacturer" class="form-select">
+                    {% for value, label in form.manufacturer.choices %}
+                        <option value="{{ value }}" {% if manufacturer_id == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Категория</label>
+                <select name="category" class="form-select">
+                    {% for value, label in form.category.choices %}
+                        <option value="{{ value }}" {% if category_id == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Сортировка</label>
+                <select name="sort" class="form-select">
+                    {% for value, label in form.sort.choices %}
+                        <option value="{{ value }}" {% if sort == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-info w-100">
+                    <i class="bi bi-search"></i> Применить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Кнопка добавления товара для админа и менеджера -->
+{% if current_user.is_authenticated and (current_user.is_admin or current_user.is_manager) %}
+<div class="mb-3">
+    <a href="{{ url_for('add_product') }}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Добавить товар
+    </a>
+</div>
+{% endif %}
+
+<!-- Список товаров -->
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+    {% for product in products.items %}
+    <div class="col">
+        <div class="card product-card">
+            <div class="position-relative">
+                {% if product.product_current_discount > 0 %}
+                <span class="discount-badge">-{{ product.product_current_discount }}%</span>
+                {% endif %}
+                <a href="{{ url_for('product_detail', article=product.product_article_number) }}">
+                    {% if product.product_photo %}
+                    <img src="{{ url_for('uploaded_file', filename=product.product_photo) }}"
+                         class="card-img-top product-image" alt="{{ product.display_name }}">
+                    {% else %}
+                    <div class="card-img-top product-image d-flex align-items-center justify-content-center bg-light">
+                        <i class="bi bi-image text-secondary" style="font-size: 3rem;"></i>
+                    </div>
+                    {% endif %}
+                </a>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{{ url_for('product_detail', article=product.product_article_number) }}"
+                       class="text-decoration-none text-dark">
+                        {{ product.display_name }}
+                    </a>
+                </h5>
+                <p class="card-text text-muted">{{ product.manufacturer.manufacturer_name if product.manufacturer else '' }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        {% if product.product_current_discount > 0 %}
+                        <span class="text-decoration-line-through text-muted">
+                            {{ "%.2f"|format(product.product_cost) }} ₽
+                        </span>
+                        <br>
+                        <span class="h5 text-danger">
+                            {{ "%.2f"|format(product.discounted_price) }} ₽
+                        </span>
+                        {% else %}
+                        <span class="h5">{{ "%.2f"|format(product.product_cost) }} ₽</span>
+                        {% endif %}
+                    </div>
+                    <span class="badge bg-{{ 'success' if product.product_quantity_in_stock > 0 else 'secondary' }}">
+                        {{ product.product_quantity_in_stock }} шт.
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Товары не найдены
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Пагинация -->
+{% if products.pages > 1 %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if products.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('products', page=products.prev_num, search=search, manufacturer=manufacturer_id, category=category_id, sort=sort) }}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for page_num in products.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                {% if page_num == products.page %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('products', page=page_num, search=search, manufacturer=manufacturer_id, category=category_id, sort=sort) }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if products.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('products', page=products.next_num, search=search, manufacturer=manufacturer_id, category=category_id, sort=sort) }}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

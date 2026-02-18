@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .product-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .product-item:hover {
+        background-color: #f8f9fa;
+    }
+    .quantity-input {
+        width: 80px;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-5">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-{{ 'pencil' if order else 'plus-circle' }}"></i> {{ title }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="orderForm">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.delivery_date.label(class="form-label") }}
+                        {{ form.delivery_date(class="form-control", type="date") }}
+                        {% for error in form.delivery_date.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.pickup_point.label(class="form-label") }}
+                        {{ form.pickup_point(class="form-select") }}
+                        {% for error in form.pickup_point.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.customer.label(class="form-label") }}
+                        {{ form.customer(class="form-select") }}
+                        {% for error in form.customer.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.status.label(class="form-label") }}
+                        {{ form.status(class="form-select") }}
+                        {% for error in form.status.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('orders') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if order %}
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Информация о заказе</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th>Номер заказа:</th>
+                        <td>{{ order.order_id }}</td>
+                    </tr>
+                    <tr>
+                        <th>Дата создания:</th>
+                        <td>{{ order.order_date.strftime('%d.%m.%Y %H:%M') }}</td>
+                    </tr>
+                    <tr>
+                        <th>Код получения:</th>
+                        <td><span class="badge bg-secondary">{{ order.order_pickup_code }}</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-7">
+        {% if order %}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-cart-plus"></i> Добавить товары</h5>
+            </div>
+            <div class="card-body">
+                <input type="text" id="productSearch" class="form-control mb-3" placeholder="Поиск товаров...">
+                
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm" id="productsTable">
+                        <thead>
+                            <tr>
+                                <th>Артикул</th>
+                                <th>Товар</th>
+                                <th>Цена</th>
+                                <th>В наличии</th>
+                                <th>Кол-во</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr class="product-item">
+                                <td>{{ product.product_article_number }}</td>
+                                <td>{{ product.display_name }}</td>
+                                <td>{{ "%.2f"|format(product.discounted_price) }} ₽</td>
+                                <td>{{ product.product_quantity_in_stock }}</td>
+                                <td>
+                                    <input type="number" id="qty_{{ product.product_article_number }}" 
+                                           class="form-control form-control-sm quantity-input" 
+                                           value="1" min="1" max="{{ product.product_quantity_in_stock }}">
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-success add-product" 
+                                            data-article="{{ product.product_article_number }}">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Состав заказа</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table" id="orderProductsTable">
+                        <thead>
+                            <tr>
+                                <th>Артикул</th>
+                                <th>Товар</th>
+                                <th>Кол-во</th>
+                                <th>Цена</th>
+                                <th>Сумма</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderProductsBody">
+                            {% for op in order.order_products %}
+                            <tr id="product_{{ op.product.product_article_number }}">
+                                <td>{{ op.product.product_article_number }}</td>
+                                <td>{{ op.product.display_name }}</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm quantity-update"
+                                           data-article="{{ op.product.product_article_number }}"
+                                           value="{{ op.product_quantity }}"
+                                           min="1" max="{{ op.product.product_quantity_in_stock }}"
+                                           style="width: 80px;">
+                                </td>
+                                <td>{{ "%.2f"|format(op.product.discounted_price) }} ₽</td>
+                                <td class="product-total">{{ "%.2f"|format(op.product.discounted_price * op.product_quantity) }} ₽</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger remove-product"
+                                            data-article="{{ op.product.product_article_number }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-dark">
+                            <tr>
+                                <th colspan="4" class="text-end">Итого:</th>
+                                <th id="orderTotal">{{ "%.2f"|format(order.total_cost) }} ₽</th>
+                                <th></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Поиск товаров
+    $("#productSearch").on("keyup", function() {
+        var value = $(this).val().toLowerCase();
+        $("#productsTable tbody tr").filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
+    });
+
+    // Добавление товара в заказ
+    $(".add-product").click(function() {
+        var article = $(this).data("article");
+        var quantity = $("#qty_" + article).val();
+
+        $.ajax({
+            url: "{{ url_for('add_order_product', order_id=order.order_id) if order else '#' }}",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                article: article,
+                quantity: quantity
+            }),
+            success: function(response) {
+                location.reload();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON.error);
+            }
+        });
+    });
+
+    // Обновление количества товара
+    $(".quantity-update").change(function() {
+        var article = $(this).data("article");
+        var quantity = $(this).val();
+        var row = $(this).closest("tr");
+
+        $.ajax({
+            url: "{{ url_for('update_order_product', order_id=order.order_id) if order else '#' }}",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                article: article,
+                quantity: quantity
+            }),
+            success: function(response) {
+                row.find(".product-total").text(response.total.toFixed(2) + " ₽");
+                updateOrderTotal();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON.error);
+                location.reload();
+            }
+        });
+    });
+
+    // Удаление товара из заказа
+    $(".remove-product").click(function() {
+        var article = $(this).data("article");
+        var row = $(this).closest("tr");
+
+        $.ajax({
+            url: "{{ url_for('remove_order_product', order_id=order.order_id, article='') if order else '#' }}" + article,
+            method: "POST",
+            success: function() {
+                row.remove();
+                updateOrderTotal();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON.error);
+            }
+        });
+    });
+
+    // Обновление общей суммы
+    function updateOrderTotal() {
+        var total = 0;
+        $(".product-total").each(function() {
+            total += parseFloat($(this).text().replace(" ₽", ""));
+        });
+        $("#orderTotal").text(total.toFixed(2) + " ₽");
+    }
+});
+</script>
+{% endblock %}

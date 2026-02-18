@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ №{{ order.order_id }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Заказ №{{ order.order_id }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th>Дата заказа:</th>
+                                <td>{{ order.order_date.strftime('%d.%m.%Y %H:%M') }}</td>
+                            </tr>
+                            <tr>
+                                <th>Дата доставки:</th>
+                                <td>{{ order.order_delivery_date.strftime('%d.%m.%Y') }}</td>
+                            </tr>
+                            <tr>
+                                <th>Пункт выдачи:</th>
+                                <td>{{ order.pickup_point.pickup_point_address }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th>Клиент:</th>
+                                <td>{{ order.customer.full_name if order.customer else 'Не указан' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Код получения:</th>
+                                <td><span class="badge bg-secondary fs-6">{{ order.order_pickup_code }}</span></td>
+                            </tr>
+                            <tr>
+                                <th>Статус:</th>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.status.order_status_name == 'Завершен' else 'warning' if order.status.order_status_name == 'Новый' else 'danger' }} fs-6">
+                                        {{ order.status.order_status_name }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Состав заказа</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Артикул</th>
+                                <th>Товар</th>
+                                <th>Количество</th>
+                                <th>Цена</th>
+                                <th>Сумма</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in order.order_products %}
+                            <tr>
+                                <td>{{ op.product.product_article_number }}</td>
+                                <td>
+                                    <a href="{{ url_for('product_detail', article=op.product.product_article_number) }}">
+                                        {{ op.product.display_name }}
+                                    </a>
+                                </td>
+                                <td>{{ op.product_quantity }}</td>
+                                <td>{{ "%.2f"|format(op.product.discounted_price) }} ₽</td>
+                                <td>{{ "%.2f"|format(op.product.discounted_price * op.product_quantity) }} ₽</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-dark">
+                            <tr>
+                                <th colspan="4" class="text-end">Итого:</th>
+                                <th>{{ "%.2f"|format(order.total_cost) }} ₽</th>
+                            </tr>
+                            <tr>
+                                <th colspan="4" class="text-end">Всего товаров:</th>
+                                <th>{{ order.total_quantity }} шт.</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Действия</h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('orders') }}" class="btn btn-secondary w-100 mb-2">
+                    <i class="bi bi-arrow-left"></i> К списку заказов
+                </a>
+
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('edit_order', order_id=order.order_id) }}" class="btn btn-primary w-100 mb-2">
+                    <i class="bi bi-pencil"></i> Редактировать заказ
+                </a>
+
+                <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                    <i class="bi bi-trash"></i> Удалить заказ
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно удаления -->
+{% if current_user.is_admin %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Подтверждение удаления</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить заказ №{{ order.order_id }}?</p>
+                <p class="text-danger">Это действие нельзя отменить!</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <form action="{{ url_for('delete_order', order_id=order.order_id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

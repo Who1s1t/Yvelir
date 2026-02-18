@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.display_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="position-relative">
+                {% if product.product_current_discount > 0 %}
+                <span class="discount-badge">-{{ product.product_current_discount }}%</span>
+                {% endif %}
+                {% if product.product_photo %}
+                <img src="{{ url_for('uploaded_file', filename=product.product_photo) }}"
+                     class="card-img-top" alt="{{ product.display_name }}"
+                     style="max-height: 400px; object-fit: contain;">
+                {% else %}
+                <div class="text-center p-5 bg-light">
+                    <i class="bi bi-image text-secondary" style="font-size: 5rem;"></i>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ product.display_name }}</h2>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th>Артикул:</th>
+                        <td>{{ product.product_article_number }}</td>
+                    </tr>
+                    <tr>
+                        <th>Категория:</th>
+                        <td>{{ product.category.category_name if product.category else '' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Производитель:</th>
+                        <td>{{ product.manufacturer.manufacturer_name if product.manufacturer else '' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Поставщик:</th>
+                        <td>{{ product.supplier.supplier_name if product.supplier else '' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Ед. измерения:</th>
+                        <td>{{ product.unit.unit_short_name if product.unit else '' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Цена:</th>
+                        <td>
+                            {% if product.product_current_discount > 0 %}
+                            <span class="text-decoration-line-through text-muted">
+                                {{ "%.2f"|format(product.product_cost) }} ₽
+                            </span>
+                            <span class="h3 text-danger ms-2">
+                                {{ "%.2f"|format(product.discounted_price) }} ₽
+                            </span>
+                            <span class="badge bg-danger ms-2">
+                                Скидка {{ product.product_current_discount }}%
+                            </span>
+                            {% else %}
+                            <span class="h3">{{ "%.2f"|format(product.product_cost) }} ₽</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Макс. скидка:</th>
+                        <td>{{ product.product_max_discount }}%</td>
+                    </tr>
+                    <tr>
+                        <th>В наличии:</th>
+                        <td>
+                            <span class="badge bg-{{ 'success' if product.product_quantity_in_stock > 0 else 'secondary' }} fs-6">
+                                {{ product.product_quantity_in_stock }} шт.
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Статус:</th>
+                        <td>{{ product.product_status }}</td>
+                    </tr>
+                </table>
+
+                <div class="mt-4">
+                    <h5>Описание</h5>
+                    <p class="text-muted">{{ product.product_description }}</p>
+                </div>
+
+                {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_manager) %}
+                <div class="mt-4">
+                    <a href="{{ url_for('edit_product', article=product.product_article_number) }}"
+                       class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> Редактировать
+                    </a>
+                    {% if current_user.is_admin %}
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        <i class="bi bi-trash"></i> Удалить
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно удаления -->
+{% if current_user.is_admin %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Подтверждение удаления</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить товар "{{ product.display_name }}"?</p>
+                <p class="text-danger">Это действие нельзя отменить!</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <form action="{{ url_for('delete_product', article=product.product_article_number) }}" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
