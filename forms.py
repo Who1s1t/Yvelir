@@ -26,7 +26,7 @@ class ProductForm(FlaskForm):
     submit = SubmitField('Сохранить')
 
 class OrderForm(FlaskForm):
-    delivery_date = DateField('Дата доставки', validators=[DataRequired()], format='%Y-%m-%d')
+    delivery_date = DateFiфывыфвыфeld('Дата доставки', validators=[DataRequired()], format='%Y-%m-%d')
     pickup_point = SelectField('Пункт выдачи', coerce=int, validators=[DataRequired()])
     customer = SelectField('Клиент', coerce=int, validators=[Optional()])
     status = SelectField('Статус', coerce=int, validators=[DataRequired()])
